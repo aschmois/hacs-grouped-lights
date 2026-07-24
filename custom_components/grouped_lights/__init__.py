@@ -79,7 +79,10 @@ async def _async_register_card_resource(hass: HomeAssistant, card_url: str) -> N
             return
         except Exception as err:  # noqa: BLE001 - degrade to index injection
             _LOGGER.debug("Grouped Lights: card resource registration fell back (%s)", err)
-    add_extra_js_url(hass, card_url)
+    try:
+        add_extra_js_url(hass, card_url)
+    except Exception as err:  # noqa: BLE001 - card is optional; entry setup must not fail
+        _LOGGER.debug("Grouped Lights: could not register extra JS url (%s)", err)
 
 
 def _lovelace_storage_resources(hass: HomeAssistant):
