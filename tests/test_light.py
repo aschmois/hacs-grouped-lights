@@ -58,3 +58,30 @@ async def test_group_off_when_all_members_off(hass):
 
     eid = _group_entity_id(hass, entry)
     assert hass.states.get(eid).state == "off"
+
+
+from homeassistant.config_entries import SOURCE_USER
+from homeassistant.data_entry_flow import FlowResultType
+
+from .helpers import setup_integration
+
+
+async def test_group_created_after_subentry_added_at_runtime(hass):
+    """Adding a group after setup creates its entity (entry reloads)."""
+    hass.states.async_set("light.bulb_1", "on", {"supported_color_modes": ["onoff"], "color_mode": "onoff"})
+    hass.states.async_set("light.bulb_2", "off", {"supported_color_modes": ["onoff"]})
+    entry = await setup_integration(hass)  # no groups yet
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, GROUP_SUBENTRY_TYPE), context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {"name": "Floor Lamp", "members": ["light.bulb_1", "light.bulb_2"]},
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+    eid = _group_entity_id(hass, entry)
+    assert eid is not None
+    assert hass.states.get(eid) is not None

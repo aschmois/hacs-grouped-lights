@@ -11,9 +11,17 @@ PLATFORMS: list[Platform] = [Platform.LIGHT]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Grouped Lights from a config entry."""
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Reload when a group subentry is added / edited / removed so its light
+    # entity is (re)created or torn down.
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload the entry's platforms."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the entry when its subentries change."""
+    await hass.config_entries.async_reload(entry.entry_id)
