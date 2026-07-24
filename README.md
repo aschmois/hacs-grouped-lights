@@ -1,13 +1,10 @@
 # Grouped Lights
 
-A Home Assistant integration **and** Lovelace card that makes nested light groups a
+A Home Assistant integration **and** Lovelace card that make nested light groups a
 first-class, plugin-owned concept. You define a hierarchy — an area's master group, the
 lamps within it, and the individual bulbs within a lamp — and the integration creates the
-corresponding `light` group entities. A bundled card renders that hierarchy as collapsible,
+matching `light` group entities. A bundled card renders that hierarchy as collapsible,
 row-as-slider controls.
-
-> **Status:** design phase. See the design spec in
-> [`docs/superpowers/specs/`](docs/superpowers/specs/2026-07-23-grouped-lights-card-design.md).
 
 ## Why
 
@@ -16,18 +13,41 @@ create and maintain, and the default dashboard UI does not present a lamp → bu
 well. This plugin owns the group definitions (via config-flow subentries) and ships a card
 designed specifically for controlling grouped lights at the area, lamp, or bulb level.
 
-## Features (planned v1)
+## The integration
 
-- Define groups as Home Assistant **config subentries**; the integration creates real
-  `light` group entities from them, usable in automations, voice, and any dashboard.
-- **Collapsible control card**: each row is a brightness slider, a dot toggles power, a
-  chevron expands a group into its members, and an info button opens the entity's native
-  more-info dialog for full color control.
-- Collapsible **area → lamp → bulb** hierarchy, discovered from group membership.
+- Add **Grouped Lights** from *Settings → Devices & Services* and name the area.
+- Add a **group** (a config subentry): a name plus its member light entities. A group's
+  members can include other groups, so you can nest **area → lamp → bulb**.
+- Each group becomes a real `light.*` group entity (on if any member is on; brightness and
+  color forwarded to members) — usable in automations, voice, and any dashboard, not just
+  this card.
 
-## Installation
+## The card
 
-HACS custom repository (once released). Details to follow.
+Add a card of type `custom:grouped-lights-card`:
+
+```yaml
+type: custom:grouped-lights-card
+entity: light.room_lamps   # the master/root group to render
+# title: Living Room       # optional; defaults to the entity's friendly name
+```
+
+Each row is a brightness slider (drag to dim); a dot toggles power; a chevron expands a group
+into its members; and an info button opens the entity's native more-info dialog for full
+color, effects, and history. The card is served and registered automatically by the
+integration — no manual resource entry needed.
+
+## Install (HACS)
+
+Add this repository as a HACS **custom repository** (category: Integration), install
+*Grouped Lights*, and restart Home Assistant. Requires Home Assistant **2026.2.3** or newer.
+
+## Development
+
+- **Card** (TypeScript / Lit): `cd card && npm install && npm test` (Vitest);
+  `npm run build` bundles to `custom_components/grouped_lights/frontend/grouped-lights-card.js`.
+- **Integration** (Python): tested with `pytest-homeassistant-custom-component` on Python
+  3.13. On platforms without a C toolchain, run the suite in a Linux container.
 
 ## License
 
