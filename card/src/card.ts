@@ -44,14 +44,14 @@ export class GroupedLightsCard extends LitElement {
     this._setBrightness(node.entity_id, pct);
   }
 
-  private _row(node: LightNode, depth: number): unknown {
+  private _row(node: LightNode, depth: number, expandable = true): unknown {
     const pct = node.on && node.brightness != null ? Math.round((node.brightness / 255) * 100) : (node.on ? 100 : 0);
     const st = node.on ? `On · ${pct}%` : 'Off';
-    const expanded = this._expanded.has(node.entity_id);
+    const expanded = expandable && this._expanded.has(node.entity_id);
     return html`
       <div class="row ${node.on ? 'on' : ''}" style="--depth:${depth}" @pointerdown=${(e: PointerEvent) => this._onRowPointer(e, node)}>
         <div class="fill" style="width:${node.on ? pct : 0}%"></div>
-        ${node.isGroup
+        ${node.isGroup && expandable
           ? html`<span class="chev" data-expand=${node.entity_id}
               @click=${(e: Event) => { e.stopPropagation(); this._toggleExpand(node.entity_id); }}>${expanded ? '▾' : '▸'}</span>`
           : html`<span class="chev spacer"></span>`}
@@ -72,7 +72,7 @@ export class GroupedLightsCard extends LitElement {
     const title = this._config.title ?? root.name;
     return html`<ha-card>
       <div class="head">${title}</div>
-      ${this._row(root, 0)}
+      ${this._row(root, 0, false)}
       ${root.children.map((c) => this._row(c, 1))}
     </ha-card>`;
   }

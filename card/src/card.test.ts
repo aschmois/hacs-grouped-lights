@@ -66,4 +66,36 @@ describe('grouped-lights-card', () => {
     expect(handler).toHaveBeenCalled();
     expect(handler.mock.calls[0][0].detail).toEqual({ entityId: 'light.floor_lamp' });
   });
+
+  it('renders each top-level row exactly once and the master has no expand chevron', async () => {
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, mkHass());
+    const names = () => [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
+    expect(names().filter((n: string) => n === 'Floor Lamp')).toHaveLength(1);
+    expect(names().filter((n: string) => n === 'Table Lamp Left')).toHaveLength(1);
+    // The master (root) row is a header, not an expandable group: no chevron for it.
+    expect(el.shadowRoot.querySelector('[data-expand="light.room_lamps"]')).toBeNull();
+
+    // Expanding a deeper sub-group (Floor Lamp -> Bulb 1) must not duplicate the
+    // top-level rows that render via render()'s explicit `root.children.map(...)`.
+    el.shadowRoot.querySelector('[data-expand="light.floor_lamp"]').click();
+    await el.updateComplete;
+    expect(names().filter((n: string) => n === 'Floor Lamp')).toHaveLength(1);
+    expect(names().filter((n: string) => n === 'Table Lamp Left')).toHaveLength(1);
+    expect(names().filter((n: string) => n === 'Bulb 1')).toHaveLength(1);
+  });
+
+  it('ignores a pointerdown that targets a child control (does not set brightness)', async () => {
+    const hass = mkHass();
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, hass);
+    const dot = el.shadowRoot.querySelector('[data-toggle="light.floor_lamp"]');
+    // jsdom doesn't implement a PointerEvent constructor; a plain Event with
+    // type "pointerdown" is dispatched the same way a real PointerEvent would be
+    // (listeners match on event.type, not the constructor), and the guard in
+    // _onRowPointer returns before touching pointer-specific fields like clientX.
+    dot.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    const brightnessCalls = hass.callService.mock.calls.filter(
+      (args: any[]) => args[2] && Object.prototype.hasOwnProperty.call(args[2], 'brightness_pct'),
+    );
+    expect(brightnessCalls).toHaveLength(0);
+  });
 });
