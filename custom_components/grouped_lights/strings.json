@@ -1,0 +1,11 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a Grouped Lights area",
+        "description": "Name this area (e.g. the room these light groups belong to).",
+        "data": { "name": "Name" }
+      }
+    }
+  }
+}
