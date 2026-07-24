@@ -5,7 +5,7 @@
   "documentation": "https://github.com/aschmois/hacs-grouped-lights",
   "issue_tracker": "https://github.com/aschmois/hacs-grouped-lights/issues",
   "codeowners": ["@aschmois"],
-  "dependencies": [],
+  "dependencies": ["group"],
   "after_dependencies": ["http", "frontend", "lovelace"],
   "requirements": [],
   "iot_class": "local_push",
