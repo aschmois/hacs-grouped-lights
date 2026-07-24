@@ -27,3 +27,5 @@ secrets.yaml
 
 # Brainstorm scratch (not part of the plugin)
 .superpowers/
+docs/superpowers/
+HANDOFF*.md
