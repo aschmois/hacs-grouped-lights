@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / card build
+node_modules/
+dist/
+card/dist/
+*.tsbuildinfo
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Home Assistant test artifacts
+.storage/
+
+# Local secrets / env (never commit)
+.env
+secrets.yaml
+
+# Brainstorm scratch (not part of the plugin)
+.superpowers/
