@@ -14,6 +14,10 @@
         "user": {
           "title": "Add a light group",
           "data": { "name": "Name", "members": "Member lights", "icon": "Icon" }
+        },
+        "reconfigure": {
+          "title": "Edit light group",
+          "data": { "name": "Name", "members": "Member lights", "icon": "Icon" }
         }
       },
       "error": { "no_members": "Select at least one member light." }

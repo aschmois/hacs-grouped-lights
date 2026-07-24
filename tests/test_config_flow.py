@@ -69,3 +69,25 @@ async def test_add_group_rejects_empty_members(hass):
     )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"members": "no_members"}
+
+
+async def test_reconfigure_group_updates_members(hass):
+    entry = await setup_integration(hass)
+    await _add_group(hass, entry)
+    subentry_id = next(iter(entry.subentries))
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, GROUP_SUBENTRY_TYPE),
+        context={"source": SOURCE_RECONFIGURE, "subentry_id": subentry_id},
+    )
+    assert result["type"] == FlowResultType.FORM
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {"name": "Main Lamp", "members": ["light.bulb_1", "light.bulb_2", "light.bulb_3"]},
+    )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+    subentry = entry.subentries[subentry_id]
+    assert subentry.title == "Main Lamp"
+    assert subentry.data["members"] == ["light.bulb_1", "light.bulb_2", "light.bulb_3"]

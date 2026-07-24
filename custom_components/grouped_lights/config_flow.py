@@ -80,3 +80,27 @@ class GroupSubentryFlowHandler(ConfigSubentryFlow):
         return self.async_show_form(
             step_id="user", data_schema=_group_schema(), errors=errors
         )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Edit an existing group's name and members."""
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if not user_input.get("members"):
+                errors["members"] = "no_members"
+            else:
+                return self.async_update_and_abort(
+                    self._get_entry(),
+                    subentry,
+                    title=user_input["name"],
+                    data=_clean(user_input),
+                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                _group_schema(), subentry.data
+            ),
+            errors=errors,
+        )
