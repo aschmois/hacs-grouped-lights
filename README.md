@@ -47,7 +47,9 @@ no manual resource entry needed.
 ## Install (HACS)
 
 Add this repository as a HACS **custom repository** (category: Integration), install
-*Grouped Lights*, and restart Home Assistant. Requires Home Assistant **2026.2.3** or newer.
+*Grouped Lights*, and restart Home Assistant. HACS installs the latest **release** — pick a
+specific version from its version dropdown if you need one. Requires Home Assistant
+**2026.2.3** or newer.
 
 ## Development
 

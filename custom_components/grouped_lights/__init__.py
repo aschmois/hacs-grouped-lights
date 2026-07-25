@@ -42,18 +42,38 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
     await hass.config_entries.async_reload(entry.entry_id)
 
 
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the Lovelace resource once the last area is removed."""
+    if any(e.entry_id != entry.entry_id for e in hass.config_entries.async_entries(DOMAIN)):
+        return  # other areas still need the card
+    hass.data.pop(DATA_CARD_REGISTERED, None)
+    resources = _lovelace_storage_resources(hass)
+    if resources is None:
+        return
+    try:
+        await resources.async_get_info()  # ensure the collection is loaded
+        for item in list(resources.async_items()):
+            if str(item.get("url", "")).split("?")[0] == CARD_URL:
+                await resources.async_delete_item(item["id"])
+    except Exception as err:  # noqa: BLE001 - best-effort cleanup
+        _LOGGER.debug("Grouped Lights: could not remove the card resource: %s", err)
+
+
 async def _async_register_card_once(hass: HomeAssistant) -> None:
     """Serve + register the bundled card exactly once per HA process (survives reloads)."""
     if hass.data.get(DATA_CARD_REGISTERED):
         return
     if not os.path.exists(CARD_PATH) or hass.http is None:
         return
+    # Claim the slot before awaiting so two areas setting up at once cannot both
+    # register; released again if serving the file fails, so a later area retries.
     hass.data[DATA_CARD_REGISTERED] = True
     try:
         await hass.http.async_register_static_paths(
             [StaticPathConfig(CARD_URL, CARD_PATH, False)]
         )
     except Exception as err:  # noqa: BLE001 - card is optional; lights must still work
+        hass.data[DATA_CARD_REGISTERED] = False
         _LOGGER.warning("Grouped Lights: could not register card static path: %s", err)
         return
     try:
@@ -66,23 +86,47 @@ async def _async_register_card_once(hass: HomeAssistant) -> None:
 
 
 async def _async_register_card_resource(hass: HomeAssistant, card_url: str) -> None:
-    """Register the card as a Lovelace storage resource; fall back to an extra JS URL."""
+    """Make the card load on every dashboard, including the companion app.
+
+    A Lovelace *resource* (storage mode) is loaded by the frontend at runtime
+    from the resource list, exactly like a HACS frontend plugin, so it survives
+    the mobile app's precached app-shell. `add_extra_js_url` only injects the
+    module into the server-rendered index — invisible to the app — so it is the
+    fallback for when there is no storage collection to write to (YAML resource
+    mode, or Lovelace not set up).
+    """
     resources = _lovelace_storage_resources(hass)
     if resources is not None:
         try:
-            await resources.async_get_info()
-            existing = [r for r in resources.async_items() if str(r.get("url", "")).split("?")[0] == CARD_URL]
-            if existing:
-                await resources.async_update_item(existing[0]["id"], {"url": card_url})
-            else:
-                await resources.async_create_item({"res_type": "module", "url": card_url})
+            await _async_upsert_card_resource(resources, card_url)
             return
         except Exception as err:  # noqa: BLE001 - degrade to index injection
-            _LOGGER.debug("Grouped Lights: card resource registration fell back (%s)", err)
+            _LOGGER.warning(
+                "Grouped Lights: could not register the card as a Lovelace resource "
+                "(%s); falling back to a frontend extra module URL",
+                err,
+            )
     try:
         add_extra_js_url(hass, card_url)
     except Exception as err:  # noqa: BLE001 - card is optional; entry setup must not fail
         _LOGGER.debug("Grouped Lights: could not register extra JS url (%s)", err)
+
+
+async def _async_upsert_card_resource(resources, card_url: str) -> None:
+    """Create or version-bump our single card resource (dedupe by base URL)."""
+    await resources.async_get_info()  # ensures the collection is loaded
+    existing = next(
+        (
+            item
+            for item in resources.async_items()
+            if str(item.get("url", "")).split("?")[0] == CARD_URL
+        ),
+        None,
+    )
+    if existing is None:
+        await resources.async_create_item({"res_type": "module", "url": card_url})
+    elif existing.get("url") != card_url:
+        await resources.async_update_item(existing["id"], {"url": card_url})
 
 
 def _lovelace_storage_resources(hass: HomeAssistant):
