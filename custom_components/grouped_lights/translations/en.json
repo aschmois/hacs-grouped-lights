@@ -15,7 +15,7 @@
         "user": "Add Lamp/Group",
         "reconfigure": "Edit Lamp/Group"
       },
-      "entry_type": "Lamp Area",
+      "entry_type": "Lamp/Group",
       "step": {
         "user": {
           "title": "Add Lamp/Group",

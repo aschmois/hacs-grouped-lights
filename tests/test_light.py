@@ -6,26 +6,34 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.grouped_lights.const import DOMAIN, GROUP_SUBENTRY_TYPE
 
 
+def _subentry(name, members):
+    return ConfigSubentryData(
+        subentry_type=GROUP_SUBENTRY_TYPE,
+        title=name,
+        data={"name": name, "members": list(members)},
+        unique_id=None,
+    )
+
+
 def _entry_with_group(members):
     return MockConfigEntry(
         domain=DOMAIN,
         title="Test Room",
         data={},
-        subentries_data=[
-            ConfigSubentryData(
-                subentry_type=GROUP_SUBENTRY_TYPE,
-                title="Floor Lamp",
-                data={"name": "Floor Lamp", "members": list(members)},
-                unique_id=None,
-            )
-        ],
+        subentries_data=[_subentry("Floor Lamp", members)],
     )
 
 
-def _group_entity_id(hass, entry):
+def _group_entity_id(hass, entry, subentry_id=None):
     ent_reg = er.async_get(hass)
-    subentry_id = next(iter(entry.subentries))
+    subentry_id = subentry_id or next(iter(entry.subentries))
     return ent_reg.async_get_entity_id("light", DOMAIN, f"{DOMAIN}_{subentry_id}")
+
+
+def _all_entity_id(hass, entry):
+    return er.async_get(hass).async_get_entity_id(
+        "light", DOMAIN, f"{DOMAIN}_{entry.entry_id}_all"
+    )
 
 
 async def test_group_on_if_any_member_on(hass):
@@ -58,6 +66,44 @@ async def test_group_off_when_all_members_off(hass):
 
     eid = _group_entity_id(hass, entry)
     assert hass.states.get(eid).state == "off"
+
+
+async def test_area_all_group_lists_its_groups(hass):
+    """Every area gets one "all" entity whose members are its top-level groups."""
+    hass.states.async_set("light.bulb_1", "off", {"supported_color_modes": ["onoff"]})
+    entry = _entry_with_group(["light.bulb_1"])
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    all_eid = _all_entity_id(hass, entry)
+    assert all_eid is not None
+    state = hass.states.get(all_eid)
+    assert state.attributes["friendly_name"] == "Test Room"
+    assert state.attributes["icon"] == "mdi:lightbulb-group"
+    assert state.attributes["entity_id"] == [_group_entity_id(hass, entry)]
+
+
+async def test_area_all_group_skips_nested_groups(hass):
+    """A group used inside another group is not also a member of "all"."""
+    hass.states.async_set("light.bulb_1", "off", {"supported_color_modes": ["onoff"]})
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Test Room", data={},
+        subentries_data=[
+            _subentry("Inner Lamp", ["light.bulb_1"]),
+            # The outer group holds the inner group, by the entity id the inner
+            # group is registered under.
+            _subentry("Outer Lamp", ["light.inner_lamp"]),
+        ],
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    inner_id, outer_id = list(entry.subentries)
+    assert _group_entity_id(hass, entry, inner_id) == "light.inner_lamp"
+    members = hass.states.get(_all_entity_id(hass, entry)).attributes["entity_id"]
+    assert members == [_group_entity_id(hass, entry, outer_id)]
 
 
 from homeassistant.config_entries import SOURCE_USER

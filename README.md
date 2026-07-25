@@ -26,6 +26,8 @@ designed specifically for controlling grouped lights at the area, lamp, or bulb 
 - Each group becomes a real `light.*` group entity (on if any member is on; brightness and
   color forwarded to members) — usable in automations, voice, and any dashboard, not just
   this card.
+- Each area also gets one **"all" entity** named after the area, holding every group that
+  is not nested inside another one. That is the entity to point the card at.
 
 ## The card
 
