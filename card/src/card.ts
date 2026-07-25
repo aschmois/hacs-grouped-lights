@@ -50,7 +50,7 @@ export class GroupedLightsCard extends LitElement {
     const expanded = expandable && this._expanded.has(node.entity_id);
     return html`
       <div class="row ${node.on ? 'on' : ''}" style="--depth:${depth}" @pointerdown=${(e: PointerEvent) => this._onRowPointer(e, node)}>
-        <div class="fill" style="width:${node.on ? pct : 0}%"></div>
+        ${node.on && pct > 0 ? html`<div class="fill" style="width:${pct}%"></div>` : nothing}
         ${node.isGroup && expandable
           ? html`<span class="chev" data-expand=${node.entity_id}
               @click=${(e: Event) => { e.stopPropagation(); this._toggleExpand(node.entity_id); }}>${expanded ? '▾' : '▸'}</span>`
@@ -83,13 +83,21 @@ export class GroupedLightsCard extends LitElement {
     .row { position: relative; height: 50px; border-radius: 12px; margin: 6px 0; background: #2a2f39;
       display: flex; align-items: center; gap: 10px; padding: 0 12px; overflow: hidden;
       margin-left: calc(var(--depth) * 14px); color: #eef1f6; touch-action: none; cursor: pointer; }
-    .fill { position: absolute; inset: 0; background: rgba(255,183,101,.22); border-right: 2px solid var(--amber); z-index: 0; }
-    .row > * { position: relative; z-index: 1; }
+    /* The fill is the brightness bar behind the row. It must stay out of the
+       flex flow: ".row > *" below has the same specificity, so excluding .fill
+       there is what keeps "position: absolute" from being overridden. */
+    .fill { position: absolute; top: 0; bottom: 0; left: 0; background: rgba(255,183,101,.22);
+      border-right: 2px solid var(--amber); z-index: 0; pointer-events: none; }
+    .row > *:not(.fill) { position: relative; z-index: 1; }
     .chev { width: 16px; text-align: center; color: #98a0ad; }
     .chev.spacer { visibility: hidden; }
     .dot { width: 10px; height: 10px; border-radius: 50%; background: #5a616e; flex: none; }
     .dot.on { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-    .meta { flex: 1; } .nm { font-size: 14.5px; font-weight: 560; } .st { font-size: 11.5px; color: #98a0ad; }
+    /* min-width:0 lets the label shrink inside the flex row instead of forcing
+       the row wider than the card. */
+    .meta { flex: 1; min-width: 0; }
+    .nm, .st { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nm { font-size: 14.5px; font-weight: 560; } .st { font-size: 11.5px; color: #98a0ad; }
     .info { background: none; border: none; color: #98a0ad; font-size: 16px; cursor: pointer; }
     .err { padding: 12px; color: #ff8080; }
   `;

@@ -99,3 +99,26 @@ describe('grouped-lights-card', () => {
     expect(brightnessCalls).toHaveLength(0);
   });
 });
+
+describe('brightness fill layout', () => {
+  it('renders a fill sized to brightness for an on row, and none when off', async () => {
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, mkHass());
+    const rows = [...el.shadowRoot.querySelectorAll('.row')];
+    const fillOf = (row: Element) => row.querySelector('.fill') as HTMLElement | null;
+
+    // master (brightness 128/255 -> 50%) has a fill; the off row has none, so its
+    // border cannot paint a sliver at the left edge of the row.
+    expect(fillOf(rows[0])!.style.width).toBe('50%');
+    const offRow = rows.find((r) => r.querySelector('.nm')!.textContent === 'Table Lamp Left')!;
+    expect(fillOf(offRow)).toBeNull();
+  });
+
+  it('keeps the fill out of the flex flow', async () => {
+    // ".fill" and ".row > *" have equal specificity, so a bare ".row > *" rule
+    // would win on order and override position:absolute — which pushed every
+    // control to the right of the fill. The :not() is what prevents that.
+    const css = (customElements.get('grouped-lights-card') as any).styles.cssText as string;
+    expect(css).toContain('.row > *:not(.fill)');
+    expect(css).not.toMatch(/\.row > \*\s*\{/);
+  });
+});
