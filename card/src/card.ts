@@ -26,6 +26,9 @@ export class GroupedLightsCard extends LitElement {
   public setConfig(config: CardConfig): void {
     if (!config || !config.entity) throw new Error('grouped-lights-card: "entity" is required');
     this._config = config;
+    // The area opens expanded; its row can then collapse the whole card down to
+    // that single row.
+    this._expanded = new Set([config.entity]);
   }
   public getCardSize(): number { return 4; }
   public static getStubConfig(): Partial<CardConfig> { return { entity: '' }; }
@@ -172,8 +175,7 @@ export class GroupedLightsCard extends LitElement {
     const title = this._config.title ?? root.name;
     return html`<ha-card>
       <div class="head">${title}</div>
-      ${this._row(root, 0, false)}
-      ${root.children.map((c) => this._row(c, 1))}
+      ${this._row(root, 0)}
     </ha-card>`;
   }
 

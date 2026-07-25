@@ -67,21 +67,34 @@ describe('grouped-lights-card', () => {
     expect(handler.mock.calls[0][0].detail).toEqual({ entityId: 'light.floor_lamp' });
   });
 
-  it('renders each top-level row exactly once and the master has no expand chevron', async () => {
+  it('renders each row exactly once, at every expansion level', async () => {
     const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, mkHass());
     const names = () => [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
     expect(names().filter((n: string) => n === 'Floor Lamp')).toHaveLength(1);
     expect(names().filter((n: string) => n === 'Table Lamp Left')).toHaveLength(1);
-    // The master (root) row is a header, not an expandable group: no chevron for it.
-    expect(el.shadowRoot.querySelector('[data-expand="light.room_lamps"]')).toBeNull();
 
-    // Expanding a deeper sub-group (Floor Lamp -> Bulb 1) must not duplicate the
-    // top-level rows that render via render()'s explicit `root.children.map(...)`.
     el.shadowRoot.querySelector('[data-expand="light.floor_lamp"]').click();
     await el.updateComplete;
     expect(names().filter((n: string) => n === 'Floor Lamp')).toHaveLength(1);
     expect(names().filter((n: string) => n === 'Table Lamp Left')).toHaveLength(1);
     expect(names().filter((n: string) => n === 'Bulb 1')).toHaveLength(1);
+  });
+
+  it('collapses the whole area down to the master row', async () => {
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, mkHass());
+    const names = () => [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
+    // The area starts expanded.
+    expect(names()).toEqual(['Room Lamps', 'Floor Lamp', 'Table Lamp Left']);
+
+    const master = () => el.shadowRoot.querySelector('[data-expand="light.room_lamps"]');
+    expect(master()).not.toBeNull();
+    master().click();
+    await el.updateComplete;
+    expect(names()).toEqual(['Room Lamps']);
+
+    master().click();
+    await el.updateComplete;
+    expect(names()).toEqual(['Room Lamps', 'Floor Lamp', 'Table Lamp Left']);
   });
 
   it('ignores a pointerdown that targets a child control (does not set brightness)', async () => {
