@@ -122,3 +122,103 @@ describe('brightness fill layout', () => {
     expect(css).not.toMatch(/\.row > \*\s*\{/);
   });
 });
+
+describe('responsiveness', () => {
+  const rowFor = (el: any, name: string) =>
+    [...el.shadowRoot.querySelectorAll('.row')].find(
+      (r: any) => r.querySelector('.nm').textContent === name,
+    ) as HTMLElement;
+  const statusOf = (el: any, name: string) => rowFor(el, name).querySelector('.st')!.textContent;
+
+  const withState = (hass: any, id: string, state: string, brightness: number | null) => ({
+    ...hass,
+    states: {
+      ...hass.states,
+      [id]: { entity_id: id, state, attributes: { friendly_name: hass.states[id].attributes.friendly_name,
+        ...(brightness != null ? { brightness } : {}) } },
+    },
+  });
+
+  const pointer = (type: string, clientX: number) =>
+    Object.assign(new Event(type, { bubbles: true }), { clientX, pointerId: 1 });
+
+  const stubWidth = (row: HTMLElement, width: number) => {
+    row.getBoundingClientRect = () => ({ left: 0, width, top: 0, height: 50, right: width,
+      bottom: 50, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+  };
+
+  it('flips a row the instant it is tapped, without waiting for HA', async () => {
+    const hass = mkHass();
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, hass);
+    expect(statusOf(el, 'Table Lamp Left')).toBe('Off');
+
+    el.shadowRoot.querySelector('[data-toggle="light.table_lamp_left"]').click();
+    await el.updateComplete;
+
+    expect(statusOf(el, 'Table Lamp Left')).toContain('On');
+    // Nothing came back from HA — the row moved purely on the local override.
+    expect(hass.states['light.table_lamp_left'].state).toBe('off');
+  });
+
+  it('re-derives the groups above the light that was tapped', async () => {
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, mkHass());
+    // Floor Lamp is the master's only lit branch; switching it off must show the
+    // master off too, even though HA still reports the group as on.
+    el.shadowRoot.querySelector('[data-toggle="light.floor_lamp"]').click();
+    await el.updateComplete;
+    expect(statusOf(el, 'Room Lamps')).toBe('Off');
+  });
+
+  it('hands control back to HA once the reported state matches', async () => {
+    const hass = mkHass();
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, hass);
+    el.shadowRoot.querySelector('[data-toggle="light.table_lamp_left"]').click();
+    await el.updateComplete;
+
+    el.hass = withState(hass, 'light.table_lamp_left', 'on', 255); // HA confirms
+    await el.updateComplete;
+    el.hass = withState(hass, 'light.table_lamp_left', 'off', null); // and it goes off again
+    await el.updateComplete;
+
+    expect(statusOf(el, 'Table Lamp Left')).toBe('Off');
+  });
+
+  it('tracks a drag on screen while rate-limiting the service calls', async () => {
+    const hass = mkHass();
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, hass);
+    const row = rowFor(el, 'Floor Lamp');
+    stubWidth(row, 200);
+    const brightnessCalls = () => hass.callService.mock.calls.filter(
+      (args: any[]) => args[2] && 'brightness_pct' in args[2]);
+
+    row.dispatchEvent(pointer('pointerdown', 100));
+    await el.updateComplete;
+    expect(statusOf(el, 'Floor Lamp')).toBe('On · 50%');
+    expect(brightnessCalls()).toHaveLength(1);
+
+    row.dispatchEvent(pointer('pointermove', 150));
+    await el.updateComplete;
+    // The row follows the finger immediately; HA is not called again this soon.
+    expect(statusOf(el, 'Floor Lamp')).toBe('On · 75%');
+    expect(brightnessCalls()).toHaveLength(1);
+
+    row.dispatchEvent(pointer('pointerup', 150));
+    expect(brightnessCalls()).toHaveLength(2);
+    expect(brightnessCalls()[1][2]).toEqual({ entity_id: 'light.floor_lamp', brightness_pct: 75 });
+  });
+
+  it('skips re-rendering when an entity it does not show changes', async () => {
+    const hass = mkHass();
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, hass);
+    const render = vi.spyOn(el as any, 'render');
+
+    el.hass = { ...hass, states: { ...hass.states,
+      'sensor.elsewhere': { entity_id: 'sensor.elsewhere', state: '42', attributes: {} } } };
+    await el.updateComplete;
+    expect(render).not.toHaveBeenCalled();
+
+    el.hass = withState(hass, 'light.bulb_1', 'on', 10);
+    await el.updateComplete;
+    expect(render).toHaveBeenCalled();
+  });
+});

@@ -39,7 +39,7 @@ entity: light.room_lamps   # the master/root group to render
 # title: Living Room       # optional; defaults to the entity's friendly name
 ```
 
-Tap along a row to set its brightness; a dot toggles power; a chevron expands a group into
+Tap or drag along a row to set its brightness; a dot toggles power; a chevron expands a group into
 its members; and an info button opens the entity's native more-info dialog for full color,
 effects, and history. The card is served and registered automatically by the integration —
 no manual resource entry needed.
