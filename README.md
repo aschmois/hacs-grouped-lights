@@ -15,9 +15,14 @@ designed specifically for controlling grouped lights at the area, lamp, or bulb 
 
 ## The integration
 
-- Add **Grouped Lights** from *Settings → Devices & Services* and name the area.
-- Add a **group** (a config subentry): a name plus its member light entities. A group's
-  members can include other groups, so you can nest **area → lamp → bulb**.
+- Add **Grouped Lights** from *Settings → Devices & Services* and name the area
+  (**New Lamp Area**).
+- **Add Lamp/Group** (a config subentry): pick the member light entities, then optionally a
+  name and icon. Members can include other groups, so you can nest **area → lamp → bulb**.
+  - The name is optional for a single light — the light's own name is used — and required
+    once there is more than one.
+  - The icon defaults to `mdi:lightbulb` for a single light and `mdi:lightbulb-group` for
+    several.
 - Each group becomes a real `light.*` group entity (on if any member is on; brightness and
   color forwarded to members) — usable in automations, voice, and any dashboard, not just
   this card.

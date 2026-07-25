@@ -1,26 +1,46 @@
 {
   "config": {
+    "initiate_flow": { "user": "New Lamp Area" },
     "step": {
       "user": {
-        "title": "Add a Grouped Lights area",
-        "description": "Name this area (e.g. the room these light groups belong to).",
+        "title": "New Lamp Area",
+        "description": "Name this area (e.g. the room these lamps and groups belong to).",
         "data": { "name": "Name" }
       }
     }
   },
   "config_subentries": {
     "group": {
+      "initiate_flow": {
+        "user": "Add Lamp/Group",
+        "reconfigure": "Edit Lamp/Group"
+      },
+      "entry_type": "Lamp Area",
       "step": {
         "user": {
-          "title": "Add a light group",
-          "data": { "name": "Name", "members": "Member lights", "icon": "Icon" }
+          "title": "Add Lamp/Group",
+          "data": { "members": "Lights", "name": "Name", "icon": "Icon" },
+          "data_description": {
+            "members": "The lights in this lamp or group. A group can include other groups.",
+            "name": "Optional for a single light (its own name is used); required for more than one.",
+            "icon": "Defaults to mdi:lightbulb for a single light, mdi:lightbulb-group for several."
+          }
         },
         "reconfigure": {
-          "title": "Edit light group",
-          "data": { "name": "Name", "members": "Member lights", "icon": "Icon" }
+          "title": "Edit Lamp/Group",
+          "data": { "members": "Lights", "name": "Name", "icon": "Icon" },
+          "data_description": {
+            "members": "The lights in this lamp or group. A group can include other groups.",
+            "name": "Optional for a single light (its own name is used); required for more than one.",
+            "icon": "Defaults to mdi:lightbulb for a single light, mdi:lightbulb-group for several."
+          }
         }
       },
-      "error": { "no_members": "Select at least one member light." }
+      "error": {
+        "no_members": "Select at least one light.",
+        "name_required": "A name is required when the group has more than one light."
+      },
+      "abort": { "reconfigure_successful": "Lamp/Group updated." }
     }
   }
 }
