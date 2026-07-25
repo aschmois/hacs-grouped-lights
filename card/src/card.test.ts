@@ -15,16 +15,24 @@ function mkHass(): HassLike & { callService: any } {
   return { states: STATES, callService: vi.fn().mockResolvedValue(undefined) };
 }
 
-async function mount(config: any, hass: HassLike) {
+/**
+ * Mounts the card and, by default, opens the area row — the card now starts
+ * fully collapsed, and most tests here are about what the rows do once shown.
+ */
+async function mount(config: any, hass: HassLike, { expandRoot = true } = {}) {
   const el = document.createElement('grouped-lights-card') as any;
   el.setConfig(config);
   el.hass = hass;
   document.body.appendChild(el);
   await el.updateComplete;
+  if (expandRoot) {
+    const chev = el.shadowRoot.querySelector(`[data-expand="${config.entity}"]`);
+    if (chev) { chev.click(); await el.updateComplete; }
+  }
   return el;
 }
 
-beforeEach(() => { document.body.innerHTML = ''; });
+beforeEach(() => { document.body.innerHTML = ''; localStorage.clear(); });
 
 describe('grouped-lights-card', () => {
   it('setConfig requires an entity', () => {
@@ -32,10 +40,10 @@ describe('grouped-lights-card', () => {
     expect(() => el.setConfig({ type: 'grouped-lights-card' })).toThrow();
   });
 
-  it('renders a row per top-level member (collapsed by default)', async () => {
+  it('renders a row per top-level member, its sub-groups still closed', async () => {
     const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, mkHass());
     const names = [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
-    // master header + two children; the group is collapsed so bulb_1 is hidden
+    // area row + its two children; Floor Lamp is closed, so bulb_1 stays hidden
     expect(names).toContain('Floor Lamp');
     expect(names).toContain('Table Lamp Left');
     expect(names).not.toContain('Bulb 1');
@@ -80,21 +88,21 @@ describe('grouped-lights-card', () => {
     expect(names().filter((n: string) => n === 'Bulb 1')).toHaveLength(1);
   });
 
-  it('collapses the whole area down to the master row', async () => {
-    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room_lamps' }, mkHass());
+  it('starts collapsed down to the area row, and expands from there', async () => {
+    const config = { type: 'grouped-lights-card', entity: 'light.room_lamps' };
+    const el = await mount(config, mkHass(), { expandRoot: false });
     const names = () => [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
-    // The area starts expanded.
-    expect(names()).toEqual(['Room Lamps', 'Floor Lamp', 'Table Lamp Left']);
+    expect(names()).toEqual(['Room Lamps']);
 
     const master = () => el.shadowRoot.querySelector('[data-expand="light.room_lamps"]');
     expect(master()).not.toBeNull();
     master().click();
     await el.updateComplete;
-    expect(names()).toEqual(['Room Lamps']);
+    expect(names()).toEqual(['Room Lamps', 'Floor Lamp', 'Table Lamp Left']);
 
     master().click();
     await el.updateComplete;
-    expect(names()).toEqual(['Room Lamps', 'Floor Lamp', 'Table Lamp Left']);
+    expect(names()).toEqual(['Room Lamps']);
   });
 
   it('ignores a pointerdown that targets a child control (does not set brightness)', async () => {
@@ -233,5 +241,44 @@ describe('responsiveness', () => {
     el.hass = withState(hass, 'light.bulb_1', 'on', 10);
     await el.updateComplete;
     expect(render).toHaveBeenCalled();
+  });
+});
+
+describe('remembering what is open', () => {
+  const CONFIG = { type: 'grouped-lights-card', entity: 'light.room_lamps' };
+  const names = (el: any) => [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
+
+  it('restores the open rows — including how deep — on a fresh card', async () => {
+    const first = await mount(CONFIG, mkHass());          // opens the area row
+    first.shadowRoot.querySelector('[data-expand="light.floor_lamp"]').click();
+    await first.updateComplete;
+    expect(names(first)).toEqual(['Room Lamps', 'Floor Lamp', 'Bulb 1', 'Table Lamp Left']);
+
+    document.body.innerHTML = '';
+    const second = await mount(CONFIG, mkHass(), { expandRoot: false });
+    expect(names(second)).toEqual(['Room Lamps', 'Floor Lamp', 'Bulb 1', 'Table Lamp Left']);
+  });
+
+  it('remembers a collapse too', async () => {
+    const first = await mount(CONFIG, mkHass());
+    first.shadowRoot.querySelector('[data-expand="light.room_lamps"]').click(); // collapse again
+    await first.updateComplete;
+
+    document.body.innerHTML = '';
+    const second = await mount(CONFIG, mkHass(), { expandRoot: false });
+    expect(names(second)).toEqual(['Room Lamps']);
+  });
+
+  it('keeps each area separate', async () => {
+    await mount(CONFIG, mkHass());
+    const other = await mount(
+      { type: 'grouped-lights-card', entity: 'light.floor_lamp' }, mkHass(), { expandRoot: false });
+    expect(names(other)).toEqual(['Floor Lamp']);
+  });
+
+  it('starts collapsed when the stored value is unusable', async () => {
+    localStorage.setItem('grouped-lights-card:light.room_lamps', '{not json');
+    const el = await mount(CONFIG, mkHass(), { expandRoot: false });
+    expect(names(el)).toEqual(['Room Lamps']);
   });
 });

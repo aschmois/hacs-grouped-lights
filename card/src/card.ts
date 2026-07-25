@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { HassLike, CardConfig, LightNode } from './types';
 import { buildTree } from './tree';
 import { applyPending, isSettled, type Pending } from './optimistic';
+import { loadExpanded, saveExpanded, storageKey } from './storage';
 
 /** Don't hold an unconfirmed value forever if HA never reports it back. */
 export const PENDING_TIMEOUT_MS = 5000;
@@ -26,9 +27,8 @@ export class GroupedLightsCard extends LitElement {
   public setConfig(config: CardConfig): void {
     if (!config || !config.entity) throw new Error('grouped-lights-card: "entity" is required');
     this._config = config;
-    // The area opens expanded; its row can then collapse the whole card down to
-    // that single row.
-    this._expanded = new Set([config.entity]);
+    // Everything starts collapsed; whatever was left open last time is restored.
+    this._expanded = loadExpanded(storageKey(config.entity));
   }
   public getCardSize(): number { return 4; }
   public static getStubConfig(): Partial<CardConfig> { return { entity: '' }; }
@@ -100,6 +100,7 @@ export class GroupedLightsCard extends LitElement {
     const next = new Set(this._expanded);
     next.has(entityId) ? next.delete(entityId) : next.add(entityId);
     this._expanded = next;
+    if (this._config?.entity) saveExpanded(storageKey(this._config.entity), next);
   }
 
   private _pct(e: PointerEvent, row: HTMLElement): number {

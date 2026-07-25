@@ -44,6 +44,9 @@ its members; and an info button opens the entity's native more-info dialog for f
 effects, and history. The card is served and registered automatically by the integration —
 no manual resource entry needed.
 
+The card opens collapsed to its single area row. Whatever you expand — the area, a lamp, or
+both — is remembered per area in the browser, so the dashboard comes back the way you left it.
+
 ## Install (HACS)
 
 Add this repository as a HACS **custom repository** (category: Integration), install
