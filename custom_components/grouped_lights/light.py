@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from homeassistant.components.group.light import LightGroup
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -72,7 +74,12 @@ def _reserve_entity_id(
 
 
 class GroupedLight(LightGroup):
-    """A plugin-owned light group; aggregation via HA's built-in LightGroup."""
+    """A plugin-owned light group; aggregation via HA's built-in LightGroup.
+
+    Switch members are first-class: they count toward the group's on/off state
+    (LightGroup's aggregation is domain-agnostic) but receive plain
+    switch.turn_on/off — no brightness or color kwargs.
+    """
 
     def __init__(
         self,
@@ -85,3 +92,34 @@ class GroupedLight(LightGroup):
         super().__init__(f"{DOMAIN}_{key}", name, member_ids, mode=False)
         if icon:
             self._attr_icon = icon
+        self._all_member_ids = list(member_ids)
+        self._switch_member_ids = [e for e in member_ids if e.startswith("switch.")]
+        self._light_member_ids = [e for e in member_ids if not e.startswith("switch.")]
+
+    async def _async_forward(self, service: str, **kwargs) -> None:
+        # LightGroup targets self._entity_ids; aiming the base call at the
+        # light members only keeps switches out of light.* service calls
+        # (which would log "referenced entities missing" for them).
+        if self._light_member_ids:
+            self._entity_ids = self._light_member_ids
+            try:
+                if service == SERVICE_TURN_ON:
+                    await super().async_turn_on(**kwargs)
+                else:
+                    await super().async_turn_off(**kwargs)
+            finally:
+                self._entity_ids = self._all_member_ids
+        if self._switch_member_ids:
+            await self.hass.services.async_call(
+                SWITCH_DOMAIN,
+                service,
+                {ATTR_ENTITY_ID: self._switch_member_ids},
+                blocking=True,
+                context=self._context,
+            )
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self._async_forward(SERVICE_TURN_ON, **kwargs)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self._async_forward(SERVICE_TURN_OFF, **kwargs)

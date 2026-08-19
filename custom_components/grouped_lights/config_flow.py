@@ -24,7 +24,7 @@ def _group_schema() -> vol.Schema:
     return vol.Schema(
         {
             vol.Required("members"): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="light", multiple=True)
+                selector.EntitySelectorConfig(domain=["light", "switch"], multiple=True)
             ),
             vol.Optional("name"): selector.TextSelector(),
             vol.Optional("icon"): selector.IconSelector(),

@@ -131,3 +131,41 @@ async def test_group_created_after_subentry_added_at_runtime(hass):
     eid = _group_entity_id(hass, entry)
     assert eid is not None
     assert hass.states.get(eid) is not None
+
+
+async def test_switch_member_counts_toward_group_state(hass):
+    """A switch member turns the group on like any light would."""
+    hass.states.async_set("light.bulb_1", "off", {"supported_color_modes": ["brightness"]})
+    hass.states.async_set("switch.sink", "on")
+    entry = _entry_with_group(["light.bulb_1", "switch.sink"])
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(_group_entity_id(hass, entry)).state == "on"
+
+
+async def test_switch_members_forwarded_to_switch_services(hass):
+    """turn_on/off reach switch members via the switch domain, without kwargs."""
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    hass.states.async_set("switch.sink", "off")
+    entry = _entry_with_group(["switch.sink"])
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    eid = _group_entity_id(hass, entry)
+
+    on_calls = async_mock_service(hass, "switch", "turn_on")
+    off_calls = async_mock_service(hass, "switch", "turn_off")
+
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": eid, "brightness": 128}, blocking=True
+    )
+    assert len(on_calls) == 1
+    assert on_calls[0].data["entity_id"] == ["switch.sink"]
+    assert "brightness" not in on_calls[0].data
+
+    await hass.services.async_call("light", "turn_off", {"entity_id": eid}, blocking=True)
+    assert len(off_calls) == 1
+    assert off_calls[0].data["entity_id"] == ["switch.sink"]
