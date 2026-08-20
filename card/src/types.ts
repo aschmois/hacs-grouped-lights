@@ -21,5 +21,6 @@ export interface LightNode {
   isGroup: boolean;          // has an `entity_id` member attribute
   on: boolean;
   brightness: number | null; // 0-255, or null when off/unknown
+  dimmable: boolean;         // false for onoff-only lights and switches: tap toggles, no slider
   children: LightNode[];
 }

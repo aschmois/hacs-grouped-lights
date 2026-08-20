@@ -282,3 +282,39 @@ describe('remembering what is open', () => {
     expect(names(el)).toEqual(['Room Lamps']);
   });
 });
+
+describe('onoff-only rows', () => {
+  const ONOFF_STATES: Record<string, any> = {
+    'light.sink_group': { entity_id: 'light.sink_group', state: 'on',
+      attributes: { friendly_name: 'Sink Group', supported_color_modes: ['onoff'], entity_id: ['switch.sink'] } },
+    'switch.sink': { entity_id: 'switch.sink', state: 'on', attributes: { friendly_name: 'Sink' } },
+  };
+  const mk = () => ({ states: ONOFF_STATES, callService: vi.fn().mockResolvedValue(undefined) }) as any;
+
+  it('shows On without a percentage', async () => {
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.sink_group' }, mk());
+    const st = el.shadowRoot.querySelector('.st');
+    expect(st.textContent).toBe('On');
+  });
+
+  it('row press toggles instead of setting brightness', async () => {
+    const hass = mk();
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.sink_group' }, hass);
+    const row = el.shadowRoot.querySelector('.row');
+    row.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await el.updateComplete;
+    expect(hass.callService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: 'light.sink_group' });
+    const brightnessCalls = hass.callService.mock.calls.filter(
+      (args: any[]) => args[2] && Object.prototype.hasOwnProperty.call(args[2], 'brightness_pct'),
+    );
+    expect(brightnessCalls).toHaveLength(0);
+  });
+
+  it('a switch child row toggles via the switch domain', async () => {
+    const hass = mk();
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.sink_group' }, hass);
+    const dot = el.shadowRoot.querySelector('[data-toggle="switch.sink"]');
+    dot.click();
+    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', { entity_id: 'switch.sink' });
+  });
+});

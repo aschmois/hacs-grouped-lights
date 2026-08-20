@@ -78,8 +78,9 @@ export class GroupedLightsCard extends LitElement {
 
   private _toggle(node: LightNode): void {
     const on = !node.on;
-    this._setPending(node.entity_id, { on, brightness: on ? node.brightness ?? 255 : null });
-    this.hass?.callService('light', on ? 'turn_on' : 'turn_off', { entity_id: node.entity_id });
+    this._setPending(node.entity_id, { on, brightness: on && node.dimmable ? node.brightness ?? 255 : null });
+    const domain = node.entity_id.startsWith('switch.') ? 'switch' : 'light';
+    this.hass?.callService(domain, on ? 'turn_on' : 'turn_off', { entity_id: node.entity_id });
   }
 
   private _setBrightness(entityId: string, pct: number, send: boolean): void {
@@ -113,6 +114,11 @@ export class GroupedLightsCard extends LitElement {
     // horizontal pointer position. Taps on the dot/chevron/info controls have
     // their own @click listeners and must not also move the slider.
     if ((e.target as HTMLElement).closest('.dot,.chev,.info')) return;
+    // onoff-only rows have no slider: the whole row is one big toggle.
+    if (!node.dimmable) {
+      this._toggle(node);
+      return;
+    }
     const row = e.currentTarget as HTMLElement;
     row.setPointerCapture?.(e.pointerId);
     this._drag = { entityId: node.entity_id, row };
@@ -137,7 +143,7 @@ export class GroupedLightsCard extends LitElement {
 
   private _row(node: LightNode, depth: number, expandable = true): unknown {
     const pct = node.on && node.brightness != null ? Math.round((node.brightness / 255) * 100) : (node.on ? 100 : 0);
-    const st = node.on ? `On · ${pct}%` : 'Off';
+    const st = node.on ? (node.dimmable ? `On · ${pct}%` : 'On') : 'Off';
     const expanded = expandable && this._expanded.has(node.entity_id);
     return html`
       <div class="row ${node.on ? 'on' : ''} ${this._dragging === node.entity_id ? 'dragging' : ''}"
