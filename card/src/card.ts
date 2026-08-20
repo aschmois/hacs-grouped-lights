@@ -144,7 +144,12 @@ export class GroupedLightsCard extends LitElement {
   private _row(node: LightNode, depth: number, expandable = true): unknown {
     const pct = node.on && node.brightness != null ? Math.round((node.brightness / 255) * 100) : (node.on ? 100 : 0);
     const st = node.on ? (node.dimmable ? `On · ${pct}%` : 'On') : 'Off';
-    const expanded = expandable && this._expanded.has(node.entity_id);
+    // A group wrapping a single entity (the "one lamp, one group" pattern)
+    // reads as a duplicate when expanded — render it as a leaf; the group row
+    // already controls its only member.
+    const soleChild = node.children.length === 1;
+    const canExpand = expandable && node.isGroup && !soleChild;
+    const expanded = canExpand && this._expanded.has(node.entity_id);
     return html`
       <div class="row ${node.on ? 'on' : ''} ${this._dragging === node.entity_id ? 'dragging' : ''}"
         style="--depth:${depth}"
@@ -153,7 +158,7 @@ export class GroupedLightsCard extends LitElement {
         @pointerup=${(e: PointerEvent) => this._onRowUp(e)}
         @pointercancel=${(e: PointerEvent) => this._onRowUp(e)}>
         ${node.on && pct > 0 ? html`<div class="fill" style="width:${pct}%"></div>` : nothing}
-        ${node.isGroup && expandable
+        ${canExpand
           ? html`<button class="chev" data-expand=${node.entity_id}
               @click=${(e: Event) => { e.stopPropagation(); this._toggleExpand(node.entity_id); }}>${expanded ? '▾' : '▸'}</button>`
           : html`<span class="chev spacer"></span>`}
@@ -163,7 +168,7 @@ export class GroupedLightsCard extends LitElement {
         <button class="info" data-info=${node.entity_id}
           @click=${(e: Event) => { e.stopPropagation(); this._moreInfo(node.entity_id); }}>ⓘ</button>
       </div>
-      ${node.isGroup && expanded ? node.children.map((c) => this._row(c, depth + 1)) : nothing}
+      ${expanded ? node.children.map((c) => this._row(c, depth + 1)) : nothing}
     `;
   }
 

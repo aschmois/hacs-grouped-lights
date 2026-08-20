@@ -6,8 +6,9 @@ const STATES: Record<string, any> = {
   'light.room_lamps': { entity_id: 'light.room_lamps', state: 'on',
     attributes: { friendly_name: 'Room Lamps', brightness: 128, entity_id: ['light.floor_lamp', 'light.table_lamp_left'] } },
   'light.floor_lamp': { entity_id: 'light.floor_lamp', state: 'on',
-    attributes: { friendly_name: 'Floor Lamp', brightness: 200, entity_id: ['light.bulb_1'] } },
+    attributes: { friendly_name: 'Floor Lamp', brightness: 200, entity_id: ['light.bulb_1', 'light.bulb_2'] } },
   'light.bulb_1': { entity_id: 'light.bulb_1', state: 'on', attributes: { friendly_name: 'Bulb 1', brightness: 200 } },
+  'light.bulb_2': { entity_id: 'light.bulb_2', state: 'off', attributes: { friendly_name: 'Bulb 2' } },
   'light.table_lamp_left': { entity_id: 'light.table_lamp_left', state: 'off', attributes: { friendly_name: 'Table Lamp Left' } },
 };
 
@@ -252,11 +253,11 @@ describe('remembering what is open', () => {
     const first = await mount(CONFIG, mkHass());          // opens the area row
     first.shadowRoot.querySelector('[data-expand="light.floor_lamp"]').click();
     await first.updateComplete;
-    expect(names(first)).toEqual(['Room Lamps', 'Floor Lamp', 'Bulb 1', 'Table Lamp Left']);
+    expect(names(first)).toEqual(['Room Lamps', 'Floor Lamp', 'Bulb 1', 'Bulb 2', 'Table Lamp Left']);
 
     document.body.innerHTML = '';
     const second = await mount(CONFIG, mkHass(), { expandRoot: false });
-    expect(names(second)).toEqual(['Room Lamps', 'Floor Lamp', 'Bulb 1', 'Table Lamp Left']);
+    expect(names(second)).toEqual(['Room Lamps', 'Floor Lamp', 'Bulb 1', 'Bulb 2', 'Table Lamp Left']);
   });
 
   it('remembers a collapse too', async () => {
@@ -288,6 +289,10 @@ describe('onoff-only rows', () => {
     'light.sink_group': { entity_id: 'light.sink_group', state: 'on',
       attributes: { friendly_name: 'Sink Group', supported_color_modes: ['onoff'], entity_id: ['switch.sink'] } },
     'switch.sink': { entity_id: 'switch.sink', state: 'on', attributes: { friendly_name: 'Sink' } },
+    'light.mixed_group': { entity_id: 'light.mixed_group', state: 'on',
+      attributes: { friendly_name: 'Mixed', entity_id: ['switch.fan_light', 'light.bulb_x'] } },
+    'switch.fan_light': { entity_id: 'switch.fan_light', state: 'on', attributes: { friendly_name: 'Fan Light' } },
+    'light.bulb_x': { entity_id: 'light.bulb_x', state: 'off', attributes: { friendly_name: 'Bulb X', brightness: null } },
   };
   const mk = () => ({ states: ONOFF_STATES, callService: vi.fn().mockResolvedValue(undefined) }) as any;
 
@@ -312,9 +317,43 @@ describe('onoff-only rows', () => {
 
   it('a switch child row toggles via the switch domain', async () => {
     const hass = mk();
-    const el = await mount({ type: 'grouped-lights-card', entity: 'light.sink_group' }, hass);
-    const dot = el.shadowRoot.querySelector('[data-toggle="switch.sink"]');
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.mixed_group' }, hass);
+    const dot = el.shadowRoot.querySelector('[data-toggle="switch.fan_light"]');
     dot.click();
-    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', { entity_id: 'switch.sink' });
+    expect(hass.callService).toHaveBeenCalledWith('switch', 'turn_off', { entity_id: 'switch.fan_light' });
+  });
+});
+
+describe('single-member groups', () => {
+  const SINGLE_STATES: Record<string, any> = {
+    'light.room': { entity_id: 'light.room', state: 'off',
+      attributes: { friendly_name: 'Room', entity_id: ['light.lamp_group', 'light.pair_group'] } },
+    'light.lamp_group': { entity_id: 'light.lamp_group', state: 'off',
+      attributes: { friendly_name: 'Nook Lamp', entity_id: ['light.ikea_bulb_3'] } },
+    'light.ikea_bulb_3': { entity_id: 'light.ikea_bulb_3', state: 'off',
+      attributes: { friendly_name: 'Ikea Bulb 3', supported_color_modes: ['brightness'] } },
+    'light.pair_group': { entity_id: 'light.pair_group', state: 'off',
+      attributes: { friendly_name: 'Pair', entity_id: ['light.bulb_a', 'light.bulb_b'] } },
+    'light.bulb_a': { entity_id: 'light.bulb_a', state: 'off', attributes: { friendly_name: 'Bulb A' } },
+    'light.bulb_b': { entity_id: 'light.bulb_b', state: 'off', attributes: { friendly_name: 'Bulb B' } },
+  };
+  const mk = () => ({ states: SINGLE_STATES, callService: vi.fn().mockResolvedValue(undefined) }) as any;
+
+  it('renders a single-member group as a leaf: no chevron, no child row', async () => {
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room' }, mk());
+    expect(el.shadowRoot.querySelector('[data-expand="light.lamp_group"]')).toBeNull();
+    const names = [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
+    expect(names).toContain('Nook Lamp');
+    expect(names).not.toContain('Ikea Bulb 3');
+  });
+
+  it('a two-member group still expands', async () => {
+    const el = await mount({ type: 'grouped-lights-card', entity: 'light.room' }, mk());
+    const chev = el.shadowRoot.querySelector('[data-expand="light.pair_group"]');
+    expect(chev).not.toBeNull();
+    chev.click();
+    await el.updateComplete;
+    const names = [...el.shadowRoot.querySelectorAll('.nm')].map((n: any) => n.textContent);
+    expect(names).toContain('Bulb A');
   });
 });
