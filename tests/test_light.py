@@ -171,23 +171,16 @@ async def test_switch_members_forwarded_to_switch_services(hass):
     assert off_calls[0].data["entity_id"] == ["switch.sink"]
 
 
-async def test_onoff_group_reports_onoff_and_strips_brightness(hass):
-    """A group flagged on/off-only presents as a toggle and never dims."""
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
-
+async def test_clamped_dimmer_group_is_onoff_and_strips_brightness(hass):
+    """min == max on the dimmer's own clamp params -> the group is a switch."""
     hass.states.async_set(
         "light.dimmer", "on",
         {"brightness": 200, "supported_color_modes": ["brightness"], "color_mode": "brightness",
          "supported_features": 32},
     )
-    entry = MockConfigEntry(
-        domain=DOMAIN, title="Test Room", data={},
-        subentries_data=[ConfigSubentryData(
-            subentry_type=GROUP_SUBENTRY_TYPE, title="Extractor",
-            data={"name": "Extractor", "members": ["light.dimmer"], "onoff": True},
-            unique_id=None,
-        )],
-    )
+    hass.states.async_set("number.dimmer_minimum_brightness", "99")
+    hass.states.async_set("number.dimmer_maximum_brightness", "99")
+    entry = _entry_with_group(["light.dimmer"])
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -212,3 +205,37 @@ async def test_onoff_group_reports_onoff_and_strips_brightness(hass):
     data = forwarded[0]["service_data"]
     assert "brightness_pct" not in data and "brightness" not in data
     assert data.get("transition") == 2
+
+
+async def test_unclamping_the_dimmer_restores_dimming(hass):
+    """Raising max above min flips the group back to a dimmer, live."""
+    hass.states.async_set(
+        "light.dimmer", "on",
+        {"brightness": 200, "supported_color_modes": ["brightness"], "color_mode": "brightness"},
+    )
+    hass.states.async_set("number.dimmer_minimum_brightness", "99")
+    hass.states.async_set("number.dimmer_maximum_brightness", "99")
+    entry = _entry_with_group(["light.dimmer"])
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    eid = _group_entity_id(hass, entry)
+    assert hass.states.get(eid).attributes["supported_color_modes"] == ["onoff"]
+
+    hass.states.async_set("number.dimmer_maximum_brightness", "50")
+    await hass.async_block_till_done()
+    assert hass.states.get(eid).attributes["supported_color_modes"] == ["brightness"]
+
+
+async def test_unclamped_dimmer_group_stays_dimmable(hass):
+    """No clamp entities at all -> normal dimmable group."""
+    hass.states.async_set(
+        "light.dimmer", "on",
+        {"brightness": 200, "supported_color_modes": ["brightness"], "color_mode": "brightness"},
+    )
+    entry = _entry_with_group(["light.dimmer"])
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    state = hass.states.get(_group_entity_id(hass, entry))
+    assert state.attributes["supported_color_modes"] == ["brightness"]

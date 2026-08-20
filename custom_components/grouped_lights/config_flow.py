@@ -28,7 +28,6 @@ def _group_schema() -> vol.Schema:
             ),
             vol.Optional("name"): selector.TextSelector(),
             vol.Optional("icon"): selector.IconSelector(),
-            vol.Optional("onoff", default=False): selector.BooleanSelector(),
         }
     )
 
@@ -64,7 +63,7 @@ def _validate(
         name = _member_name(hass, members[0])
 
     icon = user_input.get("icon") or (ICON_GROUP if len(members) > 1 else ICON_SINGLE)
-    return {"name": name, "members": members, "icon": icon, "onoff": bool(user_input.get("onoff", False))}, {}
+    return {"name": name, "members": members, "icon": icon}, {}
 
 
 class GroupedLightsConfigFlow(ConfigFlow, domain=DOMAIN):
