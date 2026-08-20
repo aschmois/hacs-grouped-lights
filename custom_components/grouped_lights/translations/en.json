@@ -19,20 +19,22 @@
       "step": {
         "user": {
           "title": "Add Lamp/Group",
-          "data": { "members": "Lights", "name": "Name", "icon": "Icon" },
+          "data": { "members": "Lights", "name": "Name", "icon": "Icon", "onoff": "On/off only" },
           "data_description": {
             "members": "The lights in this lamp or group. A group can include other groups.",
             "name": "Optional for a single light (its own name is used); required for more than one.",
-            "icon": "Defaults to mdi:lightbulb for a single light, mdi:lightbulb-group for several."
+            "icon": "Defaults to mdi:lightbulb for a single light, mdi:lightbulb-group for several.",
+            "onoff": "Treat as a switch: no brightness or color controls, taps just toggle. For dimmers clamped to a fixed level."
           }
         },
         "reconfigure": {
           "title": "Edit Lamp/Group",
-          "data": { "members": "Lights", "name": "Name", "icon": "Icon" },
+          "data": { "members": "Lights", "name": "Name", "icon": "Icon", "onoff": "On/off only" },
           "data_description": {
             "members": "The lights in this lamp or group. A group can include other groups.",
             "name": "Optional for a single light (its own name is used); required for more than one.",
-            "icon": "Defaults to mdi:lightbulb for a single light, mdi:lightbulb-group for several."
+            "icon": "Defaults to mdi:lightbulb for a single light, mdi:lightbulb-group for several.",
+            "onoff": "Treat as a switch: no brightness or color controls, taps just toggle. For dimmers clamped to a fixed level."
           }
         }
       },

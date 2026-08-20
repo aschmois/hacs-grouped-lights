@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from homeassistant.components.group.light import LightGroup
+from homeassistant.components.light import ATTR_TRANSITION, ColorMode
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.config_entries import ConfigEntry
@@ -37,7 +38,7 @@ async def async_setup_entry(
         # as a member on the very first setup, before the platform adds it.
         group_entity_ids.append(_reserve_entity_id(registry, entry, subentry_id, name))
         async_add_entities(
-            [GroupedLight(subentry_id, name, members, data.get("icon"))],
+            [GroupedLight(subentry_id, name, members, data.get("icon"), onoff=data.get("onoff", False))],
             config_subentry_id=subentry_id,
         )
 
@@ -87,6 +88,7 @@ class GroupedLight(LightGroup):
         name: str,
         member_ids: list[str],
         icon: str | None = None,
+        onoff: bool = False,
     ) -> None:
         # mode=False -> the group is "on" if ANY member is on (not all).
         super().__init__(f"{DOMAIN}_{key}", name, member_ids, mode=False)
@@ -95,6 +97,17 @@ class GroupedLight(LightGroup):
         self._all_member_ids = list(member_ids)
         self._switch_member_ids = [e for e in member_ids if e.startswith("switch.")]
         self._light_member_ids = [e for e in member_ids if not e.startswith("switch.")]
+        # "On/off only": a dimmer wired to a load that must not dim (e.g. an
+        # extractor fan light clamped to min=max). Presents as a toggle and
+        # never forwards brightness or color.
+        self._onoff = onoff
+
+    def async_update_group_state(self) -> None:
+        super().async_update_group_state()
+        if self._onoff:
+            self._attr_supported_color_modes = {ColorMode.ONOFF}
+            self._attr_color_mode = ColorMode.ONOFF
+            self._attr_brightness = None
 
     async def _async_forward(self, service: str, **kwargs) -> None:
         # LightGroup targets self._entity_ids; aiming the base call at the
@@ -119,6 +132,8 @@ class GroupedLight(LightGroup):
             )
 
     async def async_turn_on(self, **kwargs) -> None:
+        if self._onoff:
+            kwargs = {k: v for k, v in kwargs.items() if k == ATTR_TRANSITION}
         await self._async_forward(SERVICE_TURN_ON, **kwargs)
 
     async def async_turn_off(self, **kwargs) -> None:

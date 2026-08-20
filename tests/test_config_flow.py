@@ -63,6 +63,7 @@ async def test_add_group_subentry_stores_members(hass):
         "name": "Floor Lamp",
         "members": ["light.bulb_1", "light.bulb_2"],
         "icon": "mdi:lightbulb-group",
+        "onoff": False,
     }
 
 
@@ -86,6 +87,7 @@ async def test_single_member_name_defaults_to_the_light(hass):
         "name": "Desk Bulb",
         "members": ["light.bulb_1"],
         "icon": "mdi:lightbulb",
+        "onoff": False,
     }
 
 

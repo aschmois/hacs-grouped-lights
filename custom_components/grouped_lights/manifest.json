@@ -1,7 +1,7 @@
 {
   "domain": "grouped_lights",
   "name": "Grouped Lights",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "documentation": "https://github.com/aschmois/hacs-grouped-lights",
   "issue_tracker": "https://github.com/aschmois/hacs-grouped-lights/issues",
   "codeowners": ["@aschmois"],

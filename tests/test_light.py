@@ -169,3 +169,46 @@ async def test_switch_members_forwarded_to_switch_services(hass):
     await hass.services.async_call("light", "turn_off", {"entity_id": eid}, blocking=True)
     assert len(off_calls) == 1
     assert off_calls[0].data["entity_id"] == ["switch.sink"]
+
+
+async def test_onoff_group_reports_onoff_and_strips_brightness(hass):
+    """A group flagged on/off-only presents as a toggle and never dims."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    hass.states.async_set(
+        "light.dimmer", "on",
+        {"brightness": 200, "supported_color_modes": ["brightness"], "color_mode": "brightness",
+         "supported_features": 32},
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Test Room", data={},
+        subentries_data=[ConfigSubentryData(
+            subentry_type=GROUP_SUBENTRY_TYPE, title="Extractor",
+            data={"name": "Extractor", "members": ["light.dimmer"], "onoff": True},
+            unique_id=None,
+        )],
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    eid = _group_entity_id(hass, entry)
+    state = hass.states.get(eid)
+    assert state.attributes["supported_color_modes"] == ["onoff"]
+    assert state.attributes.get("brightness") is None
+
+    seen = []
+    hass.bus.async_listen("call_service", lambda e: seen.append(e.data))
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": eid, "brightness_pct": 40, "transition": 2}, blocking=True
+    )
+    await hass.async_block_till_done()
+    forwarded = [
+        d for d in seen
+        if d["domain"] == "light" and d["service"] == "turn_on"
+        and d["service_data"].get("entity_id") == ["light.dimmer"]
+    ]
+    assert len(forwarded) == 1
+    data = forwarded[0]["service_data"]
+    assert "brightness_pct" not in data and "brightness" not in data
+    assert data.get("transition") == 2
